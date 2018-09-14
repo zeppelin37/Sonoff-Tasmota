@@ -177,7 +177,7 @@ void KNX_CB_Action(message_t const &msg, void *arg);
 
 #ifdef BE_MINIMAL
 
-#undef USE_ENERGY_SENSOR                      // Disable energy sensors
+//#undef USE_ENERGY_SENSOR                      // Disable energy sensors
 #undef USE_ARDUINO_OTA                        // Disable support for Arduino OTA
 #undef USE_WPS                                // Disable support for WPS as initial wifi configuration tool
 #undef USE_SMARTCONFIG                        // Disable support for Wifi SmartConfig as initial wifi configuration tool

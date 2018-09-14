@@ -1618,6 +1618,11 @@ void PerformEverySecond()
         RulesTeleperiod();  // Allow rule based HA messages
 #endif  // USE_RULES
       }
+
+#ifdef USE_ENERGY_SENSOR
+      //looks like a good place to add my code. period is configurable out of the box via the teleperiod setting :)
+      EnergyTeleperiod(); 
+#endif
     }
   }
 

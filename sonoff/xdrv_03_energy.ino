@@ -619,6 +619,9 @@ void PzemEvery200ms()
 /********************************************************************************************/
 #endif  // USE_PZEM004T
 
+bool lookingForIdle = false;
+uint32_t potentialIdleStart = 0;
+
 void Energy200ms()
 {
   energy_fifth_second++;
@@ -1238,4 +1241,99 @@ boolean Xsns03(byte function)
   return result;
 }
 
+void EnergyTeleperiod()
+{
+
+  //putting this code into this method works. but if I put it into EneryEverySecond, I get memory problems, presumably.
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  if (energy_power > 10)
+  {
+    if (!lookingForIdle)
+    {
+      lookingForIdle = true;
+      //send notification ?
+      snprintf_P(log_data, sizeof(log_data), PSTR("INFO: Detected power on"));
+      AddLog(LOG_LEVEL_INFO);
+    }
+    potentialIdleStart = millis(); //increase this whenever power detected
+  }
+  else
+  {
+    if (lookingForIdle)
+    {
+      uint32_t now = millis();
+      if (now - potentialIdleStart > 5 * 1000 * 60) //5 min
+      {
+        SendNotificationToPushOver();
+        lookingForIdle = false;
+      }
+    }
+  }
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  if (lookingForIdle) //don't want zeros all day long
+  {
+    SendDataToThingSpeak(energy_power);
+  }
+}
+
+void SendDataToThingSpeak(float power)
+{
+  HTTPClient http;
+
+  String request = String("http://api.thingspeak.com/update?key=XXX&field1=") + String(power);
+  http.begin(request);
+
+  int httpCode = http.GET();
+  // HTTP header has been send and Server response header has been handled
+  if (httpCode == HTTP_CODE_OK)
+  {
+    snprintf_P(log_data, sizeof(log_data), PSTR("INFO: Sent to ThingSpeak: %s"), http.getString().c_str());
+    AddLog(LOG_LEVEL_INFO);
+  }
+  else
+  {
+    snprintf_P(log_data, sizeof(log_data), PSTR("ERR: GET... failed, code: : %d"), httpCode);
+    AddLog(LOG_LEVEL_INFO);
+  }
+
+  http.end();
+}
+
+WiFiClientSecure client;
+void SendNotificationToPushOver()
+{
+  snprintf_P(log_data, sizeof(log_data), PSTR("INFO: Send Notification to Pushbullet"));
+  AddLog(LOG_LEVEL_INFO);
+
+  client = WiFiClientSecure();
+  const char *host = "api.pushover.net";
+  if (!client.connect(host, 443))
+  {
+    snprintf_P(log_data, sizeof(log_data), PSTR("ERR: connect failed"));
+    AddLog(LOG_LEVEL_INFO);
+    return;
+  }
+
+//sha1 fingerprint
+  if (client.verify("2D:54:27:1B:5E:D9:E1:F6:AB:49:2E:3F:4B:07:A4:35:22:18:9D:15", host))
+  {
+  }
+  else
+  {
+    client.stop();
+    snprintf_P(log_data, sizeof(log_data), PSTR("ERR: certificates don't match"));
+    AddLog(LOG_LEVEL_INFO);
+    return;
+  }
+
+  client.print(String("POST ") + "/1/messages.json?token=XXX&user=XXX&message=Fertig&sound=bike" + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" +
+               +"Content-Type: Content-Type: application/x-www-form-urlencoded\r\n" +
+               "\r\n\r\n");
+  //  while (client.available()) {
+  //  String line = client.readStringUntil('\n');
+  //  Serial.println(line);
+  //  }
+  client.stop();
+}
 #endif  // USE_ENERGY_SENSOR
